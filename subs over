@@ -1,9 +1,9 @@
-PROCEDURE sp_CUST_BILLACCNTSUBS_OFFER
+   PROCEDURE sp_CUST_BILLACCNTSUBS_OFFER
    IS
    BEGIN
       write_log ('Start sp_CUST_BILLACCNTSUBS_OFFER.');
-	  
-INSERT /*+ APPEND */ INTO CUST_BILLACCNTSUBS_OFFER (CUST_ID,
+
+      INSERT /*+ APPEND */ INTO CUST_BILLACCNTSUBS_OFFER (CUST_ID,
                                             BILL_ACCOUNT_NUM,
                                             SUBSCRIPTION_ID,
                                             OFFER_ID,
@@ -82,7 +82,7 @@ select distinct
 				AND scba.customer_ok=tc.customer_ok
         and ssi.DEACTIVATION_DT is null                        
                 ;
-                
+
       write_log (
             'sp_CUST_BILLACCNTSUBS_OFFER : '
          || TO_CHAR (SQL%ROWCOUNT)
@@ -94,5 +94,3 @@ select distinct
          write_log ('ERRROR @ sp_CUST_BILLACCNTSUBS_OFFER : ' || SQLERRM);
          ROLLBACK;
    END sp_CUST_BILLACCNTSUBS_OFFER;
-   
-   --tes
