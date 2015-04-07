@@ -96,3 +96,5 @@ select distinct
          write_log ('ERRROR @ sp_CUST_BILLACCNTSUBS_OFFER : ' || SQLERRM);
          ROLLBACK;
    END sp_CUST_BILLACCNTSUBS_OFFER;
+
+--tes
