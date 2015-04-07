@@ -1,0 +1,98 @@
+--isiska_pkg_sit140320150
+
+PROCEDURE sp_CUST_BILLACCNTSUBS_OFFER
+   IS
+   BEGIN
+      write_log ('Start sp_CUST_BILLACCNTSUBS_OFFER.');
+
+      INSERT /*+ APPEND */ INTO CUST_BILLACCNTSUBS_OFFER (CUST_ID,
+                                            BILL_ACCOUNT_NUM,
+                                            SUBSCRIPTION_ID,
+                                            OFFER_ID,
+                                            OFFER_EVENT_STATUS,
+                                            OFFERED_ACCEPTANCE_DT,
+                                            CRM_SUGGESTED_OFFER)
+         SELECT /*+ paralel(4)*/distinct scba.customer_ok AS cust_id,
+                   scba.CUSTOMER_OK
+                || '-'
+                || SCBA.SERVICELINE_OK
+                || '-'
+                || SCBA.SERVICELINENUMBER
+                   AS BILL_ACCOUNT_NUM,
+                scba.CUSTOMER_OK || '-' || scba.SERVICELINE_OK
+                   AS SUBSCRIPTION_ID,
+                ssi.ABBREVIATESERVICEITEM AS offer_id, -- cpack di stg_serviceitem
+                'ACCEPTED' AS offer_event_status, -- lookup ke tabel ca_package klo end date null masih aktif
+                SSI.activation_dt AS offered_acceptence_dt,
+                '' AS crm_suggested_offer
+           FROM STG_CUST_BILL_ACCOUNT scba,  temp_cust tc,
+           (
+select
+			stg_serviceitem.CUSTOMER_OK, stg_serviceitem.SERVICELINE_OK, stg_serviceitem.ITEMCATEGORY_OK, stg_serviceitem.ABBREVIATEITEMCATEGORY
+      , stg_serviceitem.ITEMCATEGORY,stg_serviceitem.SERVICEITEM_OK,stg_serviceitem.ABBREVIATESERVICEITEM,stg_serviceitem.SERVICEITEM
+      ,stg_serviceitem.ACTIVATION_DT,stg_serviceitem.DEACTIVATION_DT,stg_serviceitem.TARIFFCODE_OK,stg_serviceitem.TARIFFCODE
+      ,stg_serviceitem.AMOUNT,stg_serviceitem.TARIFFSTARTDATE,stg_serviceitem.TARIFFENDDATE,stg_serviceitem.UPDATEDATE,stg_serviceitem.LASTDELTA,stg_serviceitem.NSEQ
+from stg_serviceitem,
+(
+select distinct
+			CUSTOMER_OK, SERVICELINE_OK, ITEMCATEGORY_OK
+      --, SERVICEITEM_OK
+      ,ABBREVIATESERVICEITEM
+      ,max(ACTIVATION_DT) ACTIVATION_DT
+      ,max(nseq) nseq
+			from stg_serviceitem			
+      --where stg_serviceitem.customer_ok='16862328' and stg_serviceitem.serviceline_ok='2' --and stg_serviceitem.itemcategory_ok='P'
+			group by CUSTOMER_OK, SERVICELINE_OK, ITEMCATEGORY_OK
+      ,ABBREVIATESERVICEITEM--, SERVICEITEM_OK
+      
+        ) stg_serviceitem1
+        where
+        stg_serviceitem.customer_ok=stg_serviceitem1.customer_ok
+        and stg_serviceitem.SERVICELINE_OK=stg_serviceitem1.SERVICELINE_OK
+        and stg_serviceitem.ITEMCATEGORY_OK=stg_serviceitem1.ITEMCATEGORY_OK
+        and stg_serviceitem.ABBREVIATESERVICEITEM = stg_serviceitem.ABBREVIATESERVICEITEM
+        and stg_serviceitem.ACTIVATION_DT = stg_serviceitem1.ACTIVATION_DT
+        and stg_serviceitem.nseq = stg_serviceitem1.nseq
+        
+        --and stg_serviceitem.customer_ok='16862328' and stg_serviceitem.serviceline_ok='2' 
+        --and stg_serviceitem.itemcategory_ok='P' --and stg_serviceitem.ABBREVIATESERVICEITEM='INDI01' 
+        and stg_serviceitem.deactivation_dt is null
+        )SSI
+           
+          WHERE     
+				scba.customer_ok = ssi.customer_ok
+                AND scba.serviceline_ok = ssi.serviceline_ok
+                AND (      SCBA.CUSTOMER_OK
+                        || '-'
+                        || SCBA.SERVICELINE_OK
+                        || '-'
+                        || SCBA.SERVICELINENUMBER
+                           IS NOT NULL
+                     OR    SCBA.CUSTOMER_OK
+                        || '-'
+                        || SCBA.SERVICELINE_OK
+                        || '-'
+                        || SCBA.SERVICELINENUMBER NOT LIKE
+                           '---')
+                AND (   SCBA.CUSTOMER_OK || '-' || SCBA.SERVICELINE_OK
+                           IS NOT NULL
+                     OR SCBA.CUSTOMER_OK || '-' || SCBA.SERVICELINE_OK NOT LIKE
+                           '-')
+                AND SSI.serviceitem IS NOT NULL
+                --and SCBA.updatedate >= v_tdate1
+                AND SSI.ITEMCATEGORY_OK='P'
+				AND scba.customer_ok=tc.customer_ok
+        and ssi.DEACTIVATION_DT is null                        
+                ;
+
+      write_log (
+            'sp_CUST_BILLACCNTSUBS_OFFER : '
+         || TO_CHAR (SQL%ROWCOUNT)
+         || ' rows inserted.');
+      COMMIT;
+   EXCEPTION
+      WHEN OTHERS
+      THEN
+         write_log ('ERRROR @ sp_CUST_BILLACCNTSUBS_OFFER : ' || SQLERRM);
+         ROLLBACK;
+   END sp_CUST_BILLACCNTSUBS_OFFER;
